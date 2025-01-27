@@ -1,0 +1,40 @@
+To Do: write parser 
+
+Files: 
+MAIN
+    - reading input
+    - calls parseinput
+TASK
+    - 
+PARSER 
+LEXER
+
+
+For NT, write declaration 
+For T, parse_T()
+    peek()
+    then parse from there
+
+class Parser {
+    publich:
+    void parse_input(); //end w expect(EOF)
+
+    private: 
+    void pares_X;
+
+    LexicalAnalyzer lexer;
+    void syntax_error;
+    Token expect(TokenType, expected Type)
+}
+
+void Parser::parse_S(){
+    Toeken t = lexer.peek(1);
+    if (t.token_type == b || ){
+        parse_B()
+    }
+    else {
+        syntax_error();
+    }
+}
+
+g++ -std=c++11 
