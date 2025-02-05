@@ -8,6 +8,7 @@
 
 #include <string>
 #include "lexer.h"
+#include "inputbuf.h"
 
 class Parser {
   public:

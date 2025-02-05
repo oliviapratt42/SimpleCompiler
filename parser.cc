@@ -48,12 +48,12 @@ void Parser::parse_num_list(){
 void Parser::parse_poly_section(){
     //POLY poly_decl_list
     Token t = expect(POLY);
-    parse_poly_dec_list;
+    parse_poly_dec_list();
     return;
 }
 void Parser::parse_poly_dec_list(){
     //poly_decl or poly_decl poly_dec_list
-    parse_poly_decl;
+    parse_poly_decl();
     Token t = lexer.peek(1);
     Token s = lexer.peek(2);
     //question: then we have found a polyheader and need to parse decl unti end of list
@@ -64,9 +64,9 @@ void Parser::parse_poly_dec_list(){
 }
 void Parser::parse_poly_decl(){
     //poly_header EQUAL poly_body SEMICOLON
-    parse_poly_header;
+    parse_poly_header();
     expect(EQUAL);
-    parse_poly_body;
+    parse_poly_body();
     expect(SEMICOLON);
     return;
 }
@@ -76,7 +76,7 @@ void Parser::parse_poly_header(){
     Token t = lexer.peek(1);
     if (t.token_type == LPAREN){
         expect(LPAREN);
-        parse_id_list;
+        parse_id_list();
         expect(RPAREN);
     }
     return;
@@ -99,13 +99,13 @@ void Parser::parse_poly_name(){
 }
 void Parser::parse_poly_body(){
     //term_list
-    parse_term_list;
+    parse_term_list();
     return;
 }
 void Parser::parse_term_list(){
     //term
     //term add_operator term_list
-    parse_term;
+    parse_term();
     Token t = lexer.peek(1);
     if (t.token_type == PLUS || t.token_type == MINUS){
         parse_add_operator();
@@ -122,14 +122,14 @@ void Parser::parse_term(){
         parse_monomial_list();
     }
     else if (t.token_type == NUM){
-        parse_coefficient;
+        parse_coefficient();
         //if monomial list follows
         if (t.token_type == ID || t.token_type == LPAREN){
             parse_monomial_list();
         }
     }
     //what can come after a term: add_operator, term, semicolon, 
-    Token t = lexer.peek(1);
+    t = lexer.peek(1);
     if (t.token_type == PLUS || t.token_type == MINUS || t.token_type == ID || t.token_type == NUM || t.token_type == LPAREN || t.token_type == SEMICOLON){
         return;
     }
