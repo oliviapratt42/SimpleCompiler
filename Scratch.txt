@@ -1,0 +1,16 @@
+Notes of the implementation document: 
+1. Resolution: 
+    While executing variables need a resolution document 
+
+2. Allocating Memory 
+    Global counter next_available
+    - Insert (t.lexeme, next_available) in to the symbol table and increment pointer
+    INPUT: return a data structure of a list of num inputs to be used later
+        - There should be no duplicate inputs and entries should be initialized to 0
+        - This functionality is similar for assign and output 
+    EXECUTE: all variables here need memory allocated 
+    INPUTS: Need to be stored in a vector/array
+        - atoi() functional 
+
+General Notes: 
+- Discover HashMap implementation 

@@ -22,9 +22,13 @@ void Parser::syntax_error()
 
 void Parser::parse_program(){
     //tasks_section poly_section execute_section inputs_section
+    //collect int vector
     parse_tasks_section();
+    //collect poly_decl list
     parse_poly_section();
+    //collect statement list
     parse_execute_section();
+    //collect int vector
     parse_inputs_section();
     return;
     }
@@ -194,6 +198,7 @@ void Parser::parse_coefficient(){
 void Parser::parse_execute_section(){
     //EXECUTE statementnt_list
     Token t = expect(EXECUTE);
+    //need a new statement_list struct init and assign to execute_section of program
     parse_statement_list();
     return;
 }
@@ -203,46 +208,58 @@ void Parser::parse_statement_list(){
     Token t = lexer.peek(1);
     while (t.token_type == ID || t.token_type == OUTPUT || t.token_type == INPUT){
         parse_statement();
+        //statement list next pointer 
     }
     return;
 }
 void Parser::parse_statement(){
     //input, output, assign
+    //make new statement malloc and pass to pasre x statement
     Token t = lexer.peek(1);
     if (t.token_type == INPUT){
         parse_input_statement();
+        //return statement struct
         return;
     }
     else if (t.token_type == OUTPUT){
         parse_output_statement();
+        //return statement struct
         return;
     }
     else if (t.token_type == ID){
         parse_assign_statement();
+        //return statement struct
         return;
     }
+    //error handling
     syntax_error();
 }
 void Parser::parse_input_statement(){
     //input id semicolon
+    //fill values of statement struct param
     Token t = expect(INPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
+    //return statement struct
     return;
 }
 void Parser::parse_output_statement(){
     //output id semicolon
+    //fill values of statement struct param
     Token t = expect(OUTPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
+    //return statement struct
     return;
 }
 void Parser::parse_assign_statement(){
     //ID EQUAL poly_evaluation SEMICOLON
+    //fill values of statement struct param
     Token t = expect(ID);
     Token k = expect(EQUAL);
     parse_poly_evaluation();
     Token j = expect(SEMICOLON);
+    //return statement struct
     return;
 }
 void Parser::parse_poly_evaluation(){
@@ -258,24 +275,28 @@ void Parser::parse_poly_evaluation(){
     syntax_error();
 }
 void Parser::parse_argument_list(){
-    //argument
-    //argument COMMA argument_list
+    /*  argument
+        argument COMMA argument_list
+    */
+    //TODO
     parse_argument();
     Token t = lexer.peek(1);
     if (t.token_type == COMMA){
         Token k = expect(COMMA);
         parse_argument_list();
     }
-    //or end of poly eval
+        //or end of poly eval
     else if (t.token_type == RPAREN){
         return;
     }
     syntax_error();
 }
 void Parser::parse_argument(){
-    //ID
-    //NUM
-    //poly_evaluation -> poly_name -> ID
+    /*  ID
+        NUM
+        poly_evaluation -> poly_name -> ID
+    */
+   //TODO
     Token t = lexer.peek(1);
     if (t.token_type == ID){
         t = expect(ID);
@@ -293,6 +314,7 @@ void Parser::parse_argument(){
 }
 void Parser::parse_inputs_section(){
     //INPUTS num_list
+    //return int vector inputs_section
     Token t = expect(INPUTS);
     parse_num_list();
     return;
