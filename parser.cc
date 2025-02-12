@@ -68,7 +68,7 @@ void Parser::parse_poly_dec_list(){
 }
 void Parser::parse_poly_decl(){
     //poly_header EQUAL poly_body SEMICOLON
-    parse_poly_header();
+    parse_poly_header(); //returns a list 
     expect(EQUAL);
     parse_poly_body();
     expect(SEMICOLON);
@@ -123,12 +123,15 @@ void Parser::parse_term(){
     Token t = lexer.peek(1);
     //monom_list ->monom->primary_>ID or Lparen
     if (t.token_type == ID || t.token_type == LPAREN){
+        //create new monomial list
         parse_monomial_list();
     }
     else if (t.token_type == NUM){
         parse_coefficient();
         //if monomial list follows
         if (t.token_type == ID || t.token_type == LPAREN){
+                    //create new monomial list
+
             parse_monomial_list();
         }
     }
@@ -145,11 +148,13 @@ void Parser::parse_monomial_list(){
     //monom_list ->monom->primary_>ID or Lparen
     while (t.token_type == ID || t.token_type == LPAREN){
         parse_monomial();
+        //adjust LL pointers
     }
     return;
 }
 void Parser::parse_monomial(){
     //primary or primary exponent
+    //allocate memory to monomial struct
     parse_primary();
     Token t = lexer.peek(1);
     if (t.token_type == POWER){
@@ -172,11 +177,12 @@ void Parser::parse_primary(){
     }
     syntax_error();
 }
-void Parser::parse_exponent(){
+int Parser::parse_exponent(){
     //POWER NUM
     Token t = expect(POWER);
     Token k = expect(NUM);
-    return;
+    int value = 0; //value = k.lexeme(int)
+    return value;
 }
 void Parser::parse_add_operator(){
     //PLUS or MINUS
@@ -190,10 +196,12 @@ void Parser::parse_add_operator(){
     }
     syntax_error();
 }
-void Parser::parse_coefficient(){
+int Parser::parse_coefficient(){
     //NUM
-    expect(NUM);
-    return;
+    Token t = expect(NUM);
+    int value = 0;
+    //FIXME int value = (int)t.lexeme;
+    return value;
 }
 void Parser::parse_execute_section(){
     //EXECUTE statementnt_list

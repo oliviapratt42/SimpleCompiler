@@ -18,30 +18,47 @@ OBJECT DEFINITIONS
 */
 struct PROGRAM{
   vector<int> tasks; //num list
-  //instead use a vector table
+  //instead use a vector table poly decl
   POLY_DECL* poly_section;
   STATEMENT_LIST* execute_section; //statement list
   vector<int> inputs_section; //num list
 };
-//implemented as a LL
+//implemented as a LLshould keepa a head pointer
 struct STATEMENT_LIST{
   STATEMENT* statement; 
-  STATEMENT* next;
 };
 struct STATEMENT{
   STYPE statement_type; //input, output or assign
-  string ID; 
-  int poly_evaluation = 0; //optional for assign
+  int var; //for input and output is index of location in INPUT and oUTPUT 
+  int LHS; //index of variable on the LHS of sign
+  POLY_EVAL* poly_evaluation_t; //optional for assign
+  STATEMENT* next;
 };
+struct POLY_EVAL{
+  int index; //of POLY in table
+  ARGUMENT_LIST* argument_list;
+};
+struct ARGUMENT_LIST{
+  ARGUMENT* head;
+};
+struct ARGUMENT{
+  ATYPE type; 
+  int value; 
+  int index; //of ID in id list 
+  POLY_EVAL* poly_eval;
+  ARGUMENT* next;
+};
+//implememnetation recommends this as a table so these are entries
 struct POLY_DECL{
     char* name;
-    VAR_MAP* arg_map;
+    LOC_MAP* poly_parameters; //paramaters of the poly decl is a new map
     TERM* body;
+    int line_no; //in the POLY decl section 
 };
 //behaves as a linked list 
 struct TERM{
     int coefficient;
-    MONOMIAL* monomial;
+    MONOMIAL_LIST* monomial_list;
     ADD_OPERATOR addop; //PLUS, MINUS, NONE
     TERM* next;
 };
@@ -50,16 +67,25 @@ struct MONOMIAL {
     PRIMARY* primary; 
     MONOMIAL* next; 
 };
+struct MONOMIAL_LIST{
+  MONOMIAL* head; 
+};
 struct PRIMARY {
     int line_no; //for semantic checking
     PTYPE type; //IDENTIFIER, TERM_LIST
-    Token id; 
+    int var_index; //index of the primary 
+    //originally Token id was part of thsi
     TERM* term_list;
 };
 //!!!TODO implement hash map!!!
-struct VAR_MAP{
+//LOCATION TABLE of varibles as execute parses
+struct LOC_MAP{
     string var;
     int value;
+};
+enum ATYPE{
+  NUM_TYPE = 0,
+  POLYEVAL_TYPE = 1
 };
 enum ADD_OPERATOR{
     NONE = 0,
@@ -99,9 +125,9 @@ class Parser {
     void parse_monomial_list();
     void parse_monomial();
     void parse_primary();
-    void parse_exponent();
+    int parse_exponent();
     void parse_add_operator();
-    void parse_coefficient();
+    int parse_coefficient();
     void parse_execute_section(); //create new statement list
     void parse_statement_list(); 
     void parse_statement();

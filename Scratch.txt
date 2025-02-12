@@ -1,3 +1,34 @@
+TODO: 
+- make a graph 
+populate and allocate memory for input 
+- fix atoi() knowldge
+- fix hash map and poly decl table
+write resolution code 
+semantic checking
+
+TASK 1
+Syntax Checking (roughly implemented)
+Semantic Checking 
+1. Check the program.poly_decl table for name 
+    - need to print out line number
+2. Invalid monomial name 
+    - variables used are either x or present in the argument declaration
+3. Attempted evaluation 
+    - if a poly declaration attempting to be evaluated DNE in the poly list 
+    error
+4. Number of arguments
+    - if number of arguments in the poly eval is different than the number of 
+    arguments in the poly decl
+
+TASK 2
+- all variables should be initialized to 0 and as execute is read, 
+    location map should be updated as new variables are encountered
+    - discusses some counter (maybe next available)
+
+TASK 3
+
+______________________________________________
+
 Notes of the implementation document: 
 1. Resolution: 
     While executing variables need a resolution document 
@@ -14,3 +45,4 @@ Notes of the implementation document:
 
 General Notes: 
 - Discover HashMap implementation 
+
