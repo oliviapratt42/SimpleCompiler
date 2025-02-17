@@ -42,7 +42,7 @@ void Parser::parse_tasks_section(vector<int>* tasks){
     parse_num_list(tasks);
     return;
 }
-vector<int> Parser::parse_num_list(vector<int>* nums){
+void Parser::parse_num_list(vector<int>* nums){
     //NUM
     //NUM num_list
     Token t = expect(NUM);
@@ -403,11 +403,11 @@ void Parser::parse_argument(ARGUMENT* argument){
     }
     syntax_error();
 }
-void Parser::parse_inputs_section(){
+void Parser::parse_inputs_section(vector<int>* inputs_section){
     //INPUTS num_list
     //return int vector inputs_section
     Token t = expect(INPUTS);
-    parse_num_list();
+    parse_num_list(inputs_section);
     return;
 }
 
