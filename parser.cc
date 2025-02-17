@@ -8,8 +8,12 @@
  *
  */
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <cstdlib>
+#include <vector>
 #include "parser.h"
+#include "resolution.h"
 
 using namespace std;
 
@@ -20,103 +24,130 @@ void Parser::syntax_error()
     exit(1);
 }
 
-void Parser::parse_program(){
+PROGRAM* Parser::parse_program(PROGRAM* program){
     //tasks_section poly_section execute_section inputs_section
     //collect int vector
-    parse_tasks_section();
+    parse_tasks_section(program->tasks);
     //collect poly_decl list
-    parse_poly_section();
+    parse_poly_section(program->poly_section);
     //collect statement list
-    parse_execute_section();
+    parse_execute_section(program->execute_section);
     //collect int vector
-    parse_inputs_section();
+    parse_inputs_section(program->inputs_section);
     return;
     }
-void Parser::parse_tasks_section(){
+void Parser::parse_tasks_section(vector<int>* tasks){
     //TASKS num_list
     expect(TASKS);
-    parse_num_list();
+    parse_num_list(tasks);
     return;
 }
-void Parser::parse_num_list(){
+vector<int> Parser::parse_num_list(vector<int>* nums){
     //NUM
     //NUM num_list
     Token t = expect(NUM);
+    nums->push_back(stoi(t.lexeme));//grow num list
+
     Token s = lexer.peek(1);
-    if (s.token_type == NUM){ //question: argument vs numlist
-        parse_num_list();
+    if (s.token_type == NUM){ 
+        parse_num_list(nums); //recursive
     }
     return;
-    //question: should I check for other options before syntax error?
 }
-void Parser::parse_poly_section(){
+void Parser::parse_poly_section(vector<POLY_DECL>* poly_declarations){
     //POLY poly_decl_list
     Token t = expect(POLY);
-    parse_poly_dec_list();
+    parse_poly_dec_list(poly_declarations);
+
     return;
 }
-void Parser::parse_poly_dec_list(){
+void Parser::parse_poly_dec_list(vector<POLY_DECL>* poly_declarations){
     //poly_decl or poly_decl poly_dec_list
-    parse_poly_decl();
+    parse_poly_decl(poly_declarations);
     Token t = lexer.peek(1);
     Token s = lexer.peek(2);
-    //question: then we have found a polyheader and need to parse decl unti end of list
     while (t.token_type == ID && s.token_type == LPAREN){
-        parse_poly_decl();
+        parse_poly_decl(poly_declarations); //parse subsequent decl
     }
     return;
 }
-void Parser::parse_poly_decl(){
+void Parser::parse_poly_decl(vector<POLY_DECL>* poly_declarations){
     //poly_header EQUAL poly_body SEMICOLON
-    parse_poly_header(); //returns a list 
+    POLY_DECL* poly_decl = new POLY_DECL();
+    parse_poly_header(poly_decl); 
     expect(EQUAL);
-    parse_poly_body();
+    parse_poly_body(poly_decl);
     expect(SEMICOLON);
+
+    poly_declarations->push_back(*poly_decl); //adding to table
     return;
 }
-void Parser::parse_poly_header(){
+void Parser::parse_poly_header(POLY_DECL* poly_decl){
     //poly_name
-    parse_poly_name();
+    poly_decl->name = parse_poly_name();
     Token t = lexer.peek(1);
     if (t.token_type == LPAREN){
         expect(LPAREN);
-        parse_id_list();
+        parse_id_list(poly_decl->poly_parameters);
         expect(RPAREN);
-    }
+    } 
     return;
 }
-void Parser::parse_id_list(){
+void Parser::parse_id_list(vector<pair<string, int>>* poly_parameters){
     //ID
     //ID COMMA id_list
-    expect(ID);
+    static int order = 0; //of appearance in param list
+
+    Token t = expect(ID);
+    poly_parameters->push_back(make_pair(t.lexeme, order));
+    order++;
+
     Token t = lexer.peek(1);
     if (t.token_type == COMMA){
         expect(COMMA);
-        parse_id_list();
+        parse_id_list(poly_parameters);
     }
     return;
 }
-void Parser::parse_poly_name(){
+string Parser::parse_poly_name(){
     //ID
-    expect(ID);
-    return;
+    Token t = expect(ID);
+    return t.lexeme;
 }
-void Parser::parse_poly_body(){
+void Parser::parse_poly_body(POLY_DECL* poly_decl){
     //term_list
-    parse_term_list();
+    TERM_LIST* term_list = new TERM_LIST();
+    term_list->head = nullptr;
+    poly_decl->body = term_list;
+
+    parse_term_list(term_list);
     return;
 }
-void Parser::parse_term_list(){
+void Parser::parse_term_list(TERM_LIST* term_list){
     //term
     //term add_operator term_list
-    parse_term();
+    TERM* term = new TERM();
+    parse_term(term);
+
+    //construct LL MAYBE A PROBLEM
+    if (term_list == nullptr){
+        term_list->head = term;
+    } else {
+        TERM* curr = term_list->head;
+        while (curr->next != nullptr){
+            curr = curr->next;
+        }
+        curr->next = term;
+    }
+    term->next = nullptr;
+
     Token t = lexer.peek(1);
     if (t.token_type == PLUS || t.token_type == MINUS){
-        parse_add_operator();
-        parse_term_list();
+        term->addop = parse_add_operator();
+        parse_term_list(term_list);
     }
 }
-void Parser::parse_term(){
+void Parser::parse_term(TERM* term){
     //monomial_list
     //coefficient monomial_list
     //coefficient -> NUM
@@ -124,15 +155,20 @@ void Parser::parse_term(){
     //monom_list ->monom->primary_>ID or Lparen
     if (t.token_type == ID || t.token_type == LPAREN){
         //create new monomial list
-        parse_monomial_list();
+        MONOMIAL_LIST* monomial_list = new MONOMIAL_LIST();
+        monomial_list->head = nullptr;
+        term->monomial_list = monomial_list;
+        parse_monomial_list(monomial_list);
     }
     else if (t.token_type == NUM){
-        parse_coefficient();
+        term->coefficient = parse_coefficient();
         //if monomial list follows
         if (t.token_type == ID || t.token_type == LPAREN){
-                    //create new monomial list
-
-            parse_monomial_list();
+            //create new monomial list
+            MONOMIAL_LIST* monomial_list = new MONOMIAL_LIST();
+            monomial_list->head = nullptr;
+            term->monomial_list = monomial_list;
+            parse_monomial_list(monomial_list);
         }
     }
     //what can come after a term: add_operator, term, semicolon, 
@@ -142,36 +178,52 @@ void Parser::parse_term(){
     }
     else syntax_error();
 }
-void Parser::parse_monomial_list(){
+void Parser::parse_monomial_list(MONOMIAL_LIST* monomial_list){
     //monomial or monomial list
     Token t = lexer.peek(1);
     //monom_list ->monom->primary_>ID or Lparen
     while (t.token_type == ID || t.token_type == LPAREN){
-        parse_monomial();
+        MONOMIAL* new_monomial = new MONOMIAL();
+        parse_monomial(new_monomial);
         //adjust LL pointers
+        MONOMIAL* curr = monomial_list->head;
+        while (curr->next != nullptr){
+            curr = curr->next;
+        }
+        curr->next = new_monomial;
+        new_monomial->next = nullptr;
     }
     return;
 }
-void Parser::parse_monomial(){
+void Parser::parse_monomial(MONOMIAL* monomial){
     //primary or primary exponent
     //allocate memory to monomial struct
-    parse_primary();
+    PRIMARY* new_primary = new PRIMARY();
+    monomial->primary = new_primary;
+    parse_primary(new_primary);
     Token t = lexer.peek(1);
     if (t.token_type == POWER){
-        parse_exponent();
+        int exponent = parse_exponent();
+        monomial->exponent = exponent;
+    }
+    else{
+        monomial->exponent = 1;
     }
     return;
 }
-void Parser::parse_primary(){
+void Parser::parse_primary(PRIMARY* primary){
     //ID or LParent term_list RParent
     Token t = lexer.peek(1);
     if (t.token_type == ID){
         Token k = expect(ID);
+        primary->type = IDENFIER;
         return;
     }
     else if(t.token_type == LPAREN){
         Token k = expect(LPAREN);
-        parse_term_list();
+        TERM_LIST* new_term_list = new TERM_LIST();
+        new_term_list->head = nullptr;
+        parse_term_list(new_term_list);
         Token j = expect(RPAREN);
         return;
     }
@@ -181,10 +233,10 @@ int Parser::parse_exponent(){
     //POWER NUM
     Token t = expect(POWER);
     Token k = expect(NUM);
-    int value = 0; //value = k.lexeme(int)
+    int value = stoi(k.lexeme); 
     return value;
 }
-void Parser::parse_add_operator(){
+ADD_OPERATOR Parser::parse_add_operator(){
     //PLUS or MINUS
     Token t = lexer.peek(1);
     if (t.token_type == PLUS) {Token k = expect(PLUS);}
@@ -199,82 +251,103 @@ void Parser::parse_add_operator(){
 int Parser::parse_coefficient(){
     //NUM
     Token t = expect(NUM);
-    int value = 0;
+    int value = stoi(t.lexeme);
     //FIXME int value = (int)t.lexeme;
     return value;
 }
-void Parser::parse_execute_section(){
+void Parser::parse_execute_section(STATEMENT_LIST* statement_list){
     //EXECUTE statementnt_list
     Token t = expect(EXECUTE);
     //need a new statement_list struct init and assign to execute_section of program
-    parse_statement_list();
+    parse_statement_list(statement_list);
     return;
 }
-void Parser::parse_statement_list(){
+void Parser::parse_statement_list(STATEMENT_LIST* statment_list){
     //statement opt (statement_list)
     //input, output, assign
     Token t = lexer.peek(1);
     while (t.token_type == ID || t.token_type == OUTPUT || t.token_type == INPUT){
-        parse_statement();
+        STATEMENT* statement = new STATEMENT();
+        parse_statement(statement);
         //statement list next pointer 
     }
     return;
 }
-void Parser::parse_statement(){
+void Parser::parse_statement(STATEMENT* statement){
     //input, output, assign
     //make new statement malloc and pass to pasre x statement
     Token t = lexer.peek(1);
     if (t.token_type == INPUT){
-        parse_input_statement();
+        statement->statement_type = INPUT_STMT;
+        parse_input_statement(statement);
         //return statement struct
         return;
     }
     else if (t.token_type == OUTPUT){
-        parse_output_statement();
+        statement->statement_type = OUTPUT_STMT;
+        parse_output_statement(statement);
         //return statement struct
         return;
     }
     else if (t.token_type == ID){
-        parse_assign_statement();
+        statement->statement_type = ASSIGN_STATEMENT;
+        parse_assign_statement(statement);
         //return statement struct
         return;
     }
     //error handling
     syntax_error();
 }
-void Parser::parse_input_statement(){
+void Parser::parse_input_statement(STATEMENT* statement){
     //input id semicolon
     //fill values of statement struct param
     Token t = expect(INPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
-    //return statement struct
+
+    statement->LHS = -1;
+    statement->poly_evaluation_t = nullptr;
+    int sucess = grow_varmap(k.lexeme); 
+    statement->var = get_varmap(k.lexeme);
     return;
 }
-void Parser::parse_output_statement(){
+void Parser::parse_output_statement(STATEMENT* statement){
     //output id semicolon
     //fill values of statement struct param
     Token t = expect(OUTPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
+
+    statement->LHS = -1;
+    statement->poly_evaluation_t = nullptr;
+    int sucess = grow_varmap(k.lexeme); 
+    statement->var = get_varmap(k.lexeme);
     //return statement struct
     return;
 }
-void Parser::parse_assign_statement(){
+void Parser::parse_assign_statement(STATEMENT* statement){
     //ID EQUAL poly_evaluation SEMICOLON
     //fill values of statement struct param
     Token t = expect(ID);
+    int success = grow_varmap(t.lexeme); //add to var map
     Token k = expect(EQUAL);
-    parse_poly_evaluation();
+    POLY_EVAL* poly_eval = new POLY_EVAL();
+    statement->poly_evaluation_t = poly_eval;
+    parse_poly_evaluation(poly_eval);
     Token j = expect(SEMICOLON);
-    //return statement struct
+
+    statement->var = -1;
     return;
 }
-void Parser::parse_poly_evaluation(){
+void Parser::parse_poly_evaluation(POLY_EVAL* poly_eval){
     //poly_name LPAREN argument_list RPAREN
-    parse_poly_name();
+    poly_eval->name = parse_poly_name();
+
     Token t = expect(LPAREN);
-    parse_argument_list();
+    ARGUMENT_LIST* arg_list = new ARGUMENT_LIST();
+    poly_eval->argument_list = arg_list;
+    arg_list->head = nullptr;
+    parse_argument_list(arg_list);
     t = lexer.peek(1);
     //comma or semicolon
     if (t.token_type == COMMA || t.token_type == SEMICOLON){
@@ -282,16 +355,16 @@ void Parser::parse_poly_evaluation(){
     }
     syntax_error();
 }
-void Parser::parse_argument_list(){
+void Parser::parse_argument_list(ARGUMENT_LIST* argument_list){
     /*  argument
         argument COMMA argument_list
     */
-    //TODO
-    parse_argument();
+    ARGUMENT* argument = new ARGUMENT();
+    parse_argument(argument);
     Token t = lexer.peek(1);
     if (t.token_type == COMMA){
         Token k = expect(COMMA);
-        parse_argument_list();
+        parse_argument_list(argument_list);
     }
         //or end of poly eval
     else if (t.token_type == RPAREN){
@@ -299,23 +372,33 @@ void Parser::parse_argument_list(){
     }
     syntax_error();
 }
-void Parser::parse_argument(){
+void Parser::parse_argument(ARGUMENT* argument){
     /*  ID
         NUM
         poly_evaluation -> poly_name -> ID
     */
-   //TODO
     Token t = lexer.peek(1);
-    if (t.token_type == ID){
+    Token k = lexer.peek(2);
+    if (t.token_type == ID && k.token_type == LPAREN){
+        POLY_EVAL* poly_eval = new POLY_EVAL();
+        argument->poly_eval = poly_eval;
+        parse_poly_evaluation(poly_eval);
+        return;
+    }
+    else if (t.token_type == ID){
         t = expect(ID);
+        argument->index = get_varmap(t.lexeme);
+        argument->type = ID_TYPE;
+        argument->poly_eval = nullptr;
+        argument->value = NULL;
         return;
     }
     else if (t.token_type == NUM){
         t = expect(NUM);
-        return;
-    }
-    else if (t.token_type == ID){
-        parse_poly_evaluation();
+        argument->type = ID_TYPE;
+        argument->value = stoi(t.lexeme);
+        argument->poly_eval = nullptr;
+        argument->index = -1;
         return;
     }
     syntax_error();
@@ -370,14 +453,31 @@ Token Parser::expect(TokenType expected_type)
             }
         }
         */
-int main()
-{
+
+PROGRAM* allocate_program(){
+    PROGRAM* program = new PROGRAM();
+    program->tasks = new vector<int>;
+    program->poly_section = new vector<POLY_DECL>;
+    program->inputs_section = new vector<int>;
+    program->execute_section = nullptr;
+    return program;
+}
+
+int update_var_map(string lexeme){
+
+}
+int main(){
+    //load the file
+    Parser parser; 
+    PROGRAM* program = allocate_program();
+    parser.parse_program(program);
+    Token E_O_F = parser.expect(END_OF_FILE);
+    cout << "Succesful parsing\n";
+    return 0;
+        
+    
+}
     // note: the parser class has a lexer object instantiated in it. You should not be declaring
     // a separate lexer object. You can access the lexer object in the parser functions as shown in the
     // example method Parser::ConsumeAllInput
     // If you declare another lexer object, lexical analysis will not work correctly
-    Parser parser;
-
-    parser.parse_program();
-    Token E_O_F = parser.expect(END_OF_FILE);
-}
