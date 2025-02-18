@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug a.out",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/a.out",
+            "args": ["-c", "./a.out < input.txt"],  // Run the program with input redirection
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for lldb",
+                    "text": "settings set target.language c++",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build",  // Make sure this runs before debugging
+            "sourceFileMap": {
+                "/build/src": "${workspaceFolder}"
+            },
+            "MIMode": "lldb"  // Specifies that LLDB should be used
+
+        }
+    ]
+}
+

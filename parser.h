@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 #include <unordered_map>
 #include "lexer.h"
 #include "inputbuf.h"
@@ -48,110 +49,111 @@ enum STYPE {
 // These are declared early because they will be referenced in the structures
 struct POLY_EVAL;
 struct TERM;
+struct TERM_LIST;
 struct MONOMIAL_LIST;
 struct STATEMENT_LIST;
 struct ARGUMENT_LIST;
+struct PRIMARY;
 
 // Structure Definitions
 
 // Argument structure for polynomial evaluation
 struct ARGUMENT {
-  ATYPE type; 
-  int value; 
-  int index; // of ID in id list 
-  POLY_EVAL* poly_eval;
-  ARGUMENT* next;
+  ATYPE type = NUM_TYPE; 
+  int value = 0; 
+  int index = -1; // of ID in id list 
+  POLY_EVAL* poly_eval = nullptr;
+  ARGUMENT* next = nullptr;
 };
 
 // Monomial (a term with an exponent and associated primary)
 struct MONOMIAL {
-  int exponent;
-  struct PRIMARY* primary; 
-  MONOMIAL* next; 
+  int exponent = 0;
+  PRIMARY* primary = nullptr; 
+  MONOMIAL* next = nullptr; 
 };
 
 // List of monomials (could be part of a term)
 struct MONOMIAL_LIST {
-  MONOMIAL* head; 
+  MONOMIAL* head = nullptr; 
 };
 
+struct TERM_LIST{
+  TERM* head = nullptr;
+};
+// Term structure for polynomial (may contain a list of monomials and an operator)
+struct TERM {
+  int coefficient = 1;
+  MONOMIAL_LIST* monomial_list = nullptr;
+  ADD_OPERATOR addop; // PLUS (1), MINUS(-1), NONE (0)
+  TERM* next; // for linking terms
+};
 // Primary term (can be an identifier or a term list)
 struct PRIMARY {
-  int line_no; // for semantic checking
-  PTYPE type; // IDENFIER, TERM_LIST
-  int var_index; // index of the primary 
-  TERM_LIST* term_list; // points to list of terms
+  int line_no = -1; // for semantic checking
+  PTYPE type = IDENFIER; // IDENFIER, TERM_LIST
+  int var_index = -1; // index of the primary 
+  TERM_LIST* term_list = nullptr; // points to list of terms
 };
 
 // Polynomial declaration structure
 struct POLY_DECL {
-  string name;
-  vector<pair<string, int>>* poly_parameters;
-  TERM_LIST* body; // body of the polynomial
-  int line_no; // line number in the polynomial declaration section
-};
-struct TERM_LIST{
-  TERM* head;
-};
-// Term structure for polynomial (may contain a list of monomials and an operator)
-struct TERM {
-  int coefficient;
-  MONOMIAL_LIST* monomial_list;
-  ADD_OPERATOR addop; // PLUS (1), MINUS(-1), NONE (0)
-  TERM* next; // for linking terms
+  string name = "";
+  vector<pair<string, int> >* poly_parameters = nullptr;
+  TERM_LIST* body = nullptr; // body of the polynomial
+  int line_no = -1; // line number in the polynomial declaration section
 };
 
 // Statement structure (input, output, or assignment)
 struct STATEMENT {
-  STYPE statement_type; // input, output, or assign
-  int var; // for input/output: index of location
-  int LHS; // index of variable on the LHS of the equation
-  POLY_EVAL* poly_evaluation_t; // optional for assignment
-  STATEMENT* next; // next statement in the list
+  STYPE statement_type = INPUT_STMT; // input, output, or assign
+  int var = -1; // for input/output: index of location
+  int LHS = -1; // index of variable on the LHS of the equation
+  POLY_EVAL* poly_evaluation_t = nullptr; // optional for assignment
+  STATEMENT* next = nullptr; // next statement in the list
 };
 
 // Polynomial evaluation structure
 struct POLY_EVAL {
-  string name; // of the polynomial in the table
-  ARGUMENT_LIST* argument_list; // list of arguments
+  string name = ""; // of the polynomial in the table
+  ARGUMENT_LIST* argument_list = nullptr; // list of arguments
 };
 
 // List of arguments for polynomial evaluation
 struct ARGUMENT_LIST {
-  ARGUMENT* head; // head of the argument list
+  ARGUMENT* head = nullptr; // head of the argument list
 };
 
 // Main program structure containing tasks, polynomial declarations, statements, and input sections
 struct PROGRAM {
-  vector<int>* tasks; // list of task numbers
-  vector<POLY_DECL>* poly_section; // list of polynomial declarations
-  STATEMENT_LIST* execute_section; // linked list of statements to execute
-  vector<int>* inputs_section; // input list
+  vector<int>* tasks = nullptr; // list of task numbers
+  vector<POLY_DECL>* poly_section = nullptr; // list of polynomial declarations
+  STATEMENT_LIST* execute_section = nullptr; // linked list of statements to execute
+  vector<int>* inputs_section = nullptr; // input list
 };
 
 // Linked list of statements (acts as a container for statements)
 struct STATEMENT_LIST {
-  STATEMENT* statement; // head of the statement list
+  STATEMENT* head = nullptr; // head of the statement list
 };
 
 class Parser {
   public:
-    void parse_input();
     Token expect(TokenType expected_type);
     PROGRAM* parse_program(PROGRAM* program);
+    PROGRAM* allocate_program();
     LexicalAnalyzer lexer;
 
   private:
-    PROGRAM* allocate_program();
     void syntax_error();
     void parse_tasks_section(vector<int>* tasks);
     void parse_num_list(vector<int>* nums); 
     void parse_poly_section(vector<POLY_DECL>* poly_declarations);
-    void parse_poly_dec_list(vector<POLY_DECL>* poly_declarations);
+    void parse_poly_decl_list(vector<POLY_DECL>* poly_declarations);
     void parse_poly_decl(vector<POLY_DECL>* poly_declarations);
     void parse_poly_header(POLY_DECL* poly_decl);
-    void parse_id_list(vector<pair<string, int>>* poly_parameters);
-    string parse_poly_name();
+    void parse_id_list(vector<pair<string, int> >* poly_parameters, int order);
+    Token parse_poly_name();
     void parse_poly_body(POLY_DECL* poly_decl);
     void parse_term_list(TERM_LIST* poly_decl);
     void parse_term(TERM* term);
@@ -162,7 +164,7 @@ class Parser {
     ADD_OPERATOR parse_add_operator();
     int parse_coefficient();
     void parse_execute_section(STATEMENT_LIST* statement_list); //create new statement list
-    void parse_statement_list(STATEMENT_LIST* statment_list); 
+    void parse_statement_list(STATEMENT_LIST* statement_list); 
     void parse_statement(STATEMENT* statement);
     void parse_input_statement(STATEMENT* statement);
     void parse_output_statement(STATEMENT* statement);

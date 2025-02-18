@@ -3,6 +3,7 @@
         "vector": "cpp",
         "__config": "cpp",
         "iosfwd": "cpp",
-        "version": "cpp"
+        "version": "cpp",
+        "iostream": "cpp"
     }
 }
