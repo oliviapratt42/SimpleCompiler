@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <unordered_map>
+#include <unordered_set>
 #include "lexer.h"
 #include "inputbuf.h"
 
@@ -63,6 +63,7 @@ struct ARGUMENT {
   int value = 0; 
   int index = -1; // of ID in id list 
   POLY_EVAL* poly_eval = nullptr;
+  int line_no;
   ARGUMENT* next = nullptr;
 };
 
@@ -94,6 +95,7 @@ struct PRIMARY {
   PTYPE type = IDENFIER; // IDENFIER, TERM_LIST
   int var_index = -1; // index of the primary 
   TERM_LIST* term_list = nullptr; // points to list of terms
+  string lexeme = "";
 };
 
 // Polynomial declaration structure
@@ -107,6 +109,7 @@ struct POLY_DECL {
 // Statement structure (input, output, or assignment)
 struct STATEMENT {
   STYPE statement_type = INPUT_STMT; // input, output, or assign
+  int line_no;
   int var = -1; // for input/output: index of location
   int LHS = -1; // index of variable on the LHS of the equation
   POLY_EVAL* poly_evaluation_t = nullptr; // optional for assignment
@@ -116,6 +119,7 @@ struct STATEMENT {
 // Polynomial evaluation structure
 struct POLY_EVAL {
   string name = ""; // of the polynomial in the table
+  int line_no = -1;
   ARGUMENT_LIST* argument_list = nullptr; // list of arguments
 };
 

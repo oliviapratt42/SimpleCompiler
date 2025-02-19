@@ -34,14 +34,14 @@ PROGRAM* Parser::parse_program(PROGRAM* program){
     //printTasks(program);
 
     parse_poly_section(program->poly_section);
-    printPOLYDECL(program);
+    //printPOLYDECL(program);
 
     parse_execute_section(program->execute_section);
    // printEXECUTE(program);
     parse_inputs_section(program->inputs_section);
     //printINPUTS(program);
     return program;
-    }
+}
 void Parser::parse_tasks_section(vector<int>* tasks){
     //TASKS num_list
     Token t = expect(TASKS);
@@ -248,11 +248,11 @@ void Parser::parse_monomial_list(MONOMIAL_LIST* monomial_list){
         MONOMIAL* new_monomial = new MONOMIAL();
         parse_monomial(new_monomial);
         //adjust LL pointers
-        MONOMIAL* curr = monomial_list->head;
-        if (monomial_list->head == nullptr){
+        if (!monomial_list->head){
             monomial_list->head = new_monomial;
         }else{
-            while (curr->next != nullptr){
+            MONOMIAL* curr = monomial_list->head;
+            while (curr->next){
                 curr = curr->next;
             }
             curr->next = new_monomial;
@@ -292,17 +292,15 @@ void Parser::parse_primary(PRIMARY* primary){
         Token k = expect(ID);
         primary->type = IDENFIER;
         primary->line_no = t.line_no;
-        int success = grow_varmap("x");
-        if (success < 0){
-            cerr << "Parse primary grow varmap unsuccessful\n";
-        }
+        primary->lexeme = t.lexeme;
+        primary->var_index = get_varmap(t.lexeme);
         return;
     }
     else if(t.token_type == LPAREN){
         Token k = expect(LPAREN);
         TERM_LIST* new_term_list = new TERM_LIST();
-        new_term_list->head = nullptr;
         parse_term_list(new_term_list);
+        primary->term_list = new_term_list;
         Token j = expect(RPAREN);
         primary->type = RTERML;
         return;
@@ -402,6 +400,7 @@ void Parser::parse_statement(STATEMENT* statement){
     //input, output, assign
     //make new statement malloc and pass to pasre x statement
     Token t = lexer.peek(1);
+    statement->line_no = t.line_no;
     if (t.token_type == INPUT){
         statement->statement_type = INPUT_STMT;
         parse_input_statement(statement);
@@ -472,25 +471,24 @@ void Parser::parse_assign_statement(STATEMENT* statement){
     }
     Token k = expect(EQUAL);
     POLY_EVAL* poly_eval = new POLY_EVAL();
-    statement->poly_evaluation_t = poly_eval;
     parse_poly_evaluation(poly_eval);
+    statement->poly_evaluation_t = poly_eval;
     Token j = expect(SEMICOLON);
-
-    statement->var = -1;
+    statement->var = success;
     return;
 }
 void Parser::parse_poly_evaluation(POLY_EVAL* poly_eval){
     //poly_name LPAREN argument_list RPAREN
     poly_eval->name = (parse_poly_name()).lexeme;
     Token t = expect(LPAREN);
+    poly_eval->line_no = t.line_no;
     ARGUMENT_LIST* arg_list = new ARGUMENT_LIST();
     poly_eval->argument_list = arg_list;
-    arg_list->head = nullptr;
     parse_argument_list(arg_list);
     t = expect(RPAREN);
     t = lexer.peek(1);
     //comma or semicolon
-    if (t.token_type == SEMICOLON){
+    if (t.token_type == SEMICOLON || t.token_type == RPAREN || t.token_type == COMMA){
         return;
     } else{ cerr << 
         "Unexpected token ahead in poly eval section: " << t.token_type << "\n";
@@ -505,6 +503,17 @@ void Parser::parse_argument_list(ARGUMENT_LIST* argument_list){
     */
     ARGUMENT* argument = new ARGUMENT();
     parse_argument(argument);
+    if (!argument_list){cerr << "Null arg list passed to arg list parse\n";}
+    else if (!argument_list->head){argument_list->head = argument;
+    }
+    else{
+        ARGUMENT* currArg = argument_list->head;
+        while (currArg->next){
+            currArg = currArg->next;
+        }
+        currArg->next = argument;
+    }
+    argument->next = nullptr;
     Token t = lexer.peek(1);
     if (t.token_type == COMMA){
         Token k = expect(COMMA);
@@ -528,28 +537,29 @@ void Parser::parse_argument(ARGUMENT* argument){
         POLY_EVAL* poly_eval = new POLY_EVAL();
         argument->poly_eval = poly_eval;
         parse_poly_evaluation(poly_eval);
-        return;
+        argument->line_no = t.line_no;
+        argument->type = POLYEVAL_TYPE;
     }
     else if (t.token_type == ID){
         t = expect(ID);
         argument->index = get_varmap(t.lexeme);
         argument->type = ID_TYPE;
         argument->poly_eval = nullptr;
-        return;
+        argument->line_no = t.line_no;
     }
     else if (t.token_type == NUM){
         t = expect(NUM);
-        argument->type = ID_TYPE;
+        argument->type = NUM_TYPE;
         argument->value = stoi(t.lexeme);
         argument->poly_eval = nullptr;
         argument->index = -1;
-        return;
+        argument->line_no = t.line_no;
     }
     else {
         cerr << "Unexpected token ahead when parsing argument: " << t.token_type << "\n";
         syntax_error();
-        return;
     }
+    return;
 }
 void Parser::parse_inputs_section(vector<int>* inputs_section){
     //INPUTS num_list
@@ -619,7 +629,6 @@ int main(){
     //cout << "Starting parser\n";
     parser.parse_program(program);
     Token E_O_F = parser.expect(END_OF_FILE);
-    cout << "Succesful parsing and on to task execution\n";
     task_execution(program);
     // Print tasks
 

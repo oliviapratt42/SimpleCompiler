@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <unordered_set>
 #include <iostream>
 #include "resolution.h"
 #include "parser.h"
@@ -24,7 +25,7 @@ void task_execution(PROGRAM* program){
                     task_1(program);
                 break;
             case 2:
-                //handleTask2();
+                    //task_2(program);
                 break;
             case 3:
                 //handleTask3();
@@ -59,6 +60,7 @@ void task_1(PROGRAM* program){
     cout << "No semantic errors found\n";
    }
 }
+
 bool code_1(vector<POLY_DECL>* poly_section){
     if (!poly_section) {
         cerr << "Empty poly section found at code 1\n";
@@ -86,18 +88,24 @@ bool code_1(vector<POLY_DECL>* poly_section){
 }
 bool code_2(vector<POLY_DECL>* poly_section){
     vector<int> invalid_line;
+    /*
+    for (const auto& entry : var_map) {
+        cout << entry.first << " -> " << entry.second << endl;
+    }    
+        */
     //case no args
     for (const auto& poly : *poly_section){
         if (poly.poly_parameters == nullptr){
             if (poly.body){
+                grow_varmap("x");
                 invalid_line = process_term_list_univariate(poly.body, invalid_line);
             }
         } else {
             vector<string> poly_vars;
             for (const auto& param : *poly.poly_parameters) {
+                //cout << "Parameter " << param.first << " collected \n";
                 poly_vars.push_back(param.first); // Collect variable names (like x, y, etc.)
             }
-
             if (poly.body) {
                 invalid_line = process_term_list_multivariate(poly.body, invalid_line, poly_vars);
             }
@@ -133,6 +141,8 @@ while (term){
                 if (var_map_index == -1) {
                     cerr << "Error: Identifier not found in var_map\n";
                     invalid_line.push_back(monomial->primary->line_no);
+                } else if (monomial->primary->lexeme == "x"){
+                    monomial->primary->var_index = var_map_index; //its chill actually
                 }
                 else if (var_map_index != monomial->primary->var_index){
                     invalid_line.push_back(monomial->primary->line_no);
@@ -149,36 +159,145 @@ while (term){
 }
 vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> invalid_line, const vector<string>& poly_vars) {
     TERM* term = term_list ? term_list->head : nullptr;
+    if (!term){cout << "No term list \n";}
     while (term) {
         MONOMIAL* monomial = term->monomial_list ? term->monomial_list->head : nullptr;
         while (monomial) {
             if (monomial->primary->type == IDENFIER) {
-                // Check if the identifier is part of the valid polynomial variables
+                bool is_valid = false;
                 for (const string& var : poly_vars) {
-                    if (monomial->primary->var_index == get_varmap(var)) {
-                        break;
-                    }
-                    else {
-                        // Invalid monomial name found, add the line number to the invalid list
-                        invalid_line.push_back(monomial->primary->line_no);
+                    if (monomial->primary->lexeme == var) {
+                        is_valid = true;
+                        break;  // Exit loop early since we found a match
                     }
                 }
-            } else if (monomial->primary->type == RTERML) {
-                // Recursively process nested term lists
+                if (!is_valid) {  // If no match was found, mark it as invalid
+                    invalid_line.push_back(monomial->primary->line_no);
+                    cout << "No match found for var " << monomial->primary->lexeme << ", adding line " << monomial->primary->line_no << " to invalid list.\n";
+                }
+            } else if (monomial->primary->type == RTERML){
+                cout << monomial->primary->line_no << " \n";
                 invalid_line = process_term_list_multivariate(monomial->primary->term_list, invalid_line, poly_vars);
             }
-            monomial = monomial->next; // Move to the next monomial
+        monomial = monomial->next;
         }
         term = term->next; // Move to the next term
     }
     return invalid_line; // Return the list of invalid lines
 }
 bool code_3(PROGRAM* program){
+    /*
+    for every statement in statement list execute section
+        its poly-eval->name must exist in program->poly_decl table else error
+    */
+   if (!program || !program->execute_section || !program->poly_section){
+    cerr << "Null pointer encountered in code 3\n";
+    return false;
+   }
+   vector<int> error_lines;
+   unordered_set<string> polyNames; // will hold 
+   for (const POLY_DECL& polyDecl : *program->poly_section) {
+    polyNames.insert(polyDecl.name);
+    }   
+
+    //iterate through statements in execute section
+    STATEMENT* currentStmt = program->execute_section->head;
+    while (currentStmt) {
+        //if cur stmt has a poly eval, check it 
+        if (currentStmt->poly_evaluation_t) {
+            error_lines = check_poly_eval(currentStmt->poly_evaluation_t, polyNames, error_lines);
+        }
+        currentStmt = currentStmt->next; // Move to the next statement
+    }
+    if (!error_lines.empty()){
+        cout << "Semantic Error Code 3:";
+        for (int line : error_lines){
+            cout << " " << line; //?? maybe already sorted
+        }
+        cout << "\n";
+        return true;
+    }
+    // All polynomial evaluation names exist, return true
     return false;
 }
+vector<int> check_poly_eval(POLY_EVAL* poly_eval, unordered_set<string> polyNames, vector<int> error_lines){
+    string polyEvalName = poly_eval->name;
+    //cout << "Checking name: " << polyEvalName << " \n";
+    if (polyNames.find(polyEvalName) == polyNames.end()) {
+        //cout << "Pushing " << poly_eval->name << " with line no " << poly_eval->line_no << "\n";
+        error_lines.push_back(poly_eval->line_no);
+    }
+    if (poly_eval->argument_list){
+        //cout << "Checking name: " << polyEvalName << " argument list \n";
+        error_lines = check_arg_list(poly_eval->argument_list, polyNames, error_lines);
+    }
+    return error_lines;
+}
+vector<int> check_arg_list(ARGUMENT_LIST* argument_list,unordered_set<string> polyNames, vector<int> error_lines){
+    if (!argument_list || !argument_list->head) {
+        cerr << "Null pointer encountered in arg list\n";
+        return error_lines; // Check for nullptr
+    }
+    ARGUMENT* argument = argument_list->head;
+    while (argument){
+        if(argument->type == NUM_TYPE || argument->type == ID_TYPE){
+            //cout << "Argument type number or id encountered. Returning \n";
+            argument = argument->next;
+            continue;
+        }
+        else{
+            //cout << "Argument type assign encountered. Checking poly eval \n";
+            error_lines = check_poly_eval(argument->poly_eval, polyNames, error_lines);
+        }
+        argument = argument->next;
+    }
+    return error_lines;
+}
+
 bool code_4(PROGRAM* program){
+    vector<int> error_lines; 
+    if (!program->execute_section || !program->execute_section->head){
+        cerr << "Null pointer found in code 4\n";
+        return false;
+    }
+    STATEMENT* statement = program->execute_section->head;
+
+    while(statement){
+        if (statement->statement_type == ASSIGN_STATEMENT || statement->poly_evaluation_t){
+            for (auto& poly_decl : *(program->poly_section)){
+                if (poly_decl.name == statement->poly_evaluation_t->name){
+                    error_lines = compare_argument_count(&poly_decl, statement->poly_evaluation_t, error_lines); //how to pass poly decl
+                }
+            }
+        }
+            statement = statement->next;
+    }
+    if (!error_lines.empty()){
+        cout << "Semantic Error Code 4:";
+        for (int line : error_lines){
+            cout << " " << line; //?? maybe already sorted
+        }
+        cout << "\n";
+        return true;
+    }
     return false;
 }
+vector<int> compare_argument_count(POLY_DECL* poly_decl, POLY_EVAL* poly_eval, vector<int> error_lines){
+    if (!poly_decl || !poly_eval) return error_lines; // Safety check
+    //how many expected
+    int expected_args = (poly_decl->poly_parameters) ? poly_decl->poly_parameters->size() : 0;
+    int eval_args = 0;
+    ARGUMENT* argument = (poly_eval->argument_list) ? poly_eval->argument_list->head : nullptr;
+    while (argument) {
+        eval_args++; //collect argument num
+        argument = argument->next;
+    }
+    if (expected_args != eval_args){
+        error_lines.push_back(poly_eval->line_no);
+    }
+    return error_lines;
+}
+
 //SYNTAX getter and setter
 int syntax_execution_get(){
     return syntax_execution;
@@ -200,8 +319,7 @@ int grow_varmap(string lexeme){
     }
     // If lexeme is new, add it to var_map with the next available index
     var_map.push_back({lexeme, var_index});
-    var_index++;
-    return 0;
+    return var_index++;
 }
 
 int get_varmap(string lexeme){
@@ -210,8 +328,16 @@ int get_varmap(string lexeme){
             return entry.second;
         }
     }
-    cerr << "Error: Variable '" << lexeme << "' not found!\n";
     return -1; // Error value
+}
+string get_lexeme(int value) {
+    for (const auto& entry : var_map) {
+        if (entry.second == value) {
+            return entry.first;
+        }
+    }
+    cerr << "Error: Value '" << value << "' not found!\n";
+    return ""; // Error value
 }
 
 int get_valuelist(int index, int value){
