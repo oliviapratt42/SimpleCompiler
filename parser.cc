@@ -12,8 +12,8 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
-#include "parser.h"
 #include "resolution.h"
+#include "parser.h"
 #include "lexer.h"
 #include "inputbuf.h"
 
@@ -22,7 +22,7 @@ using namespace std;
 
 void Parser::syntax_error()
 {
-    cerr << "SYNTAX ERROR !!!!!&%!!\n";
+    cout << "SYNTAX ERROR !!!!!&%!!\n";
     syntax_execution_set(1); //send saying execution happened
     exit(1);
 }
@@ -45,6 +45,10 @@ PROGRAM* Parser::parse_program(PROGRAM* program){
 void Parser::parse_tasks_section(vector<int>* tasks){
     //TASKS num_list
     Token t = expect(TASKS);
+    Token k = lexer.peek(1);
+    if (k.token_type == POLY){
+        syntax_error();
+    }
     parse_num_list(tasks);
     return;
 }
@@ -71,6 +75,10 @@ void Parser::parse_poly_section(vector<POLY_DECL>* poly_declarations){
     } 
     
     k = expect(POLY);
+    k = lexer.peek(1);
+    if (k.token_type == EXECUTE){
+        syntax_error();
+    }
     parse_poly_decl_list(poly_declarations);
     return;
 }
@@ -149,6 +157,9 @@ void Parser::parse_id_list(vector<pair<string, int> >* poly_parameters, int orde
         if (s.token_type == ID){
             parse_id_list(poly_parameters, order);
         }
+        else{
+            syntax_error();
+        }
     }
     else if (k.token_type == RPAREN){
         return;
@@ -192,13 +203,19 @@ void Parser::parse_term_list(TERM_LIST* term_list){
     Token t = lexer.peek(1);
     if (t.token_type == PLUS || t.token_type == MINUS){
         term->addop = parse_add_operator();
-        parse_term_list(term_list);
+        t = lexer.peek(1);
+        if (t.token_type == ID || t.token_type == LPAREN || t.token_type == NUM){
+            parse_term_list(term_list);
+        }
+        else {
+            syntax_error();
+        }
     }
     else if (t.token_type == SEMICOLON|| t.token_type == RPAREN){
         return;
     }
     else {
-        cerr << "Unexpected token ahead when parsing term list: " << t.token_type << "\n";
+        //cerr << "Unexpected token ahead when parsing term list: " << t.token_type << "\n";
         syntax_error();
         return;
     }
@@ -235,7 +252,7 @@ void Parser::parse_term(TERM* term){
         return;
     }
     else {
-        cerr << "Unexpected token ahead when parsing term: " << t.token_type << "\n";
+        //cerr << "Unexpected token ahead when parsing term: " << t.token_type << "\n";
         syntax_error();
         return;
     }
@@ -351,6 +368,10 @@ void Parser::parse_execute_section(STATEMENT_LIST* statement_list){
     //EXECUTE statementnt_list
     Token t = expect(EXECUTE);
     if (t.token_type == EXECUTE){
+        t = lexer.peek(1);
+        if (t.token_type == INPUTS){
+            syntax_error();
+        }
         //need a new statement_list struct init and assign to execute_section of program
         parse_statement_list(statement_list);
         return;

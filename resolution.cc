@@ -1,9 +1,12 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <cmath> //power
 #include <iostream>
 #include "resolution.h"
 #include "parser.h"
+#include "lexer.h"
+#include "inputbuf.h"
 
 using namespace std;
 
@@ -12,7 +15,7 @@ Global var decl
 */
 static vector<pair<string, int> > var_map;
 static int var_index = 0;
-static vector<pair<int, int> > value_list;
+static vector<int> value_list;
 int syntax_execution = 0;
 
 //SEMANTIC CHECKING 
@@ -22,10 +25,11 @@ void task_execution(PROGRAM* program){
         for (int task : *program->tasks){
             switch (task){
                 case 1:
-                    task_1(program);
+                cout << "At task2 \n";
+                task_1(program);
                 break;
             case 2:
-                    //task_2(program);
+                task_2(program);
                 break;
             case 3:
                 //handleTask3();
@@ -33,8 +37,10 @@ void task_execution(PROGRAM* program){
             case 4:
                 //handleTask4();
                 break;
+            case 5: 
+                //handleTask5()
             default:
-                std::cout << "Unknown task: " << task << "\n";
+                cout << "Unknown task: " << task << "\n";
 
             }
         }
@@ -42,12 +48,206 @@ void task_execution(PROGRAM* program){
         cerr << "Tasks is found as nullptr in task execution";
     }
 }
+void task_2(PROGRAM* program){
+    if (!program || !program->execute_section || !program->execute_section->head){
+        cerr << "Null pointer found in task 2\n";
+        return;
+    }    
+    int index = 0;
+    cout << "Value list: \n";
+    for (const auto& pair : value_list) {
+        cout << index << " => " << pair << "\n";  
+        index++;
+    }
+    //populate value list with inputs 
+    for (const auto& value : *(program->inputs_section)){
+        int success = set_valuelist(value);
+        cout << "Added input " << value << " with return code " << success <<"\n";
+        if (success < 0){cerr << "Error in growing value list\n"; return;}
+    }
+    cout << "Var list: \n";
+    for (const auto& pair : var_map) {
+        cout << pair.first << " => " << pair.second << "\n";  
+    }
+    cout << "Value list 2: \n";
+    for (const auto& pair : value_list) {
+        cout << index << " => " << pair << "\n";  
+        index++;
+    }
 
+    STATEMENT* pc = program->execute_section->head;
+    int v;
+    while (pc){
+        switch(pc->statement_type){
+            case ASSIGN_STATEMENT:
+                cout << "Resolving statement of polynomial " << pc->poly_evaluation_t->name << "\n";
+                v = resolve_polynomial(pc->poly_evaluation_t, program->poly_section);
+                cout << pc->poly_evaluation_t->name << " -> " << v << "\n";
+            case INPUT_STMT:
+                break;
+            case OUTPUT_STMT:
+                break;
+        }
+        pc = pc->next;
+    }
+    return;
+}
+
+int resolve_polynomial(POLY_EVAL* poly_eval, vector<POLY_DECL>* poly_section){
+    if (!poly_eval) {
+        cerr << "Null pointer found in evaluate polynomial\n";
+        return -1;
+    }
+    /*STEP 1: get the poly declaration*/
+    POLY_DECL* poly_decl = find_poly_decl(poly_section, poly_eval->name);
+    if (!poly_decl) {
+        cerr << "Null pointer returned by poly section in resolving poly no\n";
+        return -1;
+    }
+    /* STEP 2 Resolve poly eval args */
+    vector<pair<string, int>> arg_vals;
+    
+    if (poly_decl->poly_parameters) { // Ensure the pointer is not null
+        for (const auto& param : *(poly_decl->poly_parameters)) {
+            arg_vals.push_back({param.first, 0});
+        }
+    } else {
+        arg_vals.push_back({"x", 0});
+    }
+    
+    ARGUMENT* arg = poly_eval->argument_list ? poly_eval->argument_list->head : nullptr;
+    int i = 0; // Track position in arg_vals
+    while (arg && i < arg_vals.size()) {
+        arg_vals[i].second = resolve_argument(arg, poly_section);
+        cout << "Resolved argument, now arg_vals.size is " << arg_vals.size() << "\n";
+        cout << arg_vals[i].first << " -> " << arg_vals[i].second << " is in arg_vals\n";
+        arg = arg->next;
+        i++;
+    }
+
+    if (arg_vals.empty()) {
+        cerr << "No arguments resolved for polynomial evaluation\n";
+        return -1;
+    }
+    
+        cout << "Onto step 3\n";
+    /* STEP 3: Compute the polynomial using resolved arguments */
+    return resolve_polybody(poly_decl, arg_vals);
+}
+int resolve_argument(ARGUMENT* arg, vector<POLY_DECL>* poly_section){
+    cout << "Resolving argument found on line no "<< arg->line_no<< " "<< arg->index<<"\n";
+    if (!arg) {
+        cerr << "Null argument node found in resolve_argument\n";
+        return -1;
+    }
+    if (arg->type == NUM_TYPE) {
+        return arg->value;  // Directly return the number
+    } 
+    else if (arg->type == ID_TYPE) {
+        cout << "Arg index: " << arg->index << "\n";
+        cout << "Value list returned: " << get_valuelist(arg->index) <<"\n";
+        return get_valuelist(arg->index);  // Retrieve value from value list
+    } 
+    else if (arg->type == POLYEVAL_TYPE) {
+        return resolve_polynomial(arg->poly_eval, poly_section);  // Recursive resolution
+    } 
+    else {
+        cerr << "Unknown argument type in resolve_argument\n";
+        return -1;
+    }
+}
+int resolve_polybody(POLY_DECL* poly_decl, vector<pair<string, int>>& arg_vals){
+    cout << "Resolving poly body \n";
+    if (!poly_decl || !poly_decl->body->head) {
+        cerr << "Null poly declaration or body in resolve poly body\n";
+        return -1;
+    }
+    int value = 0;
+    /*resolve term by term and collect values*/
+    TERM* term = poly_decl->body->head;
+    value = resolve_term(term, arg_vals);
+    if (term->addop == NONE){
+        return value; 
+    } else if (term->addop == PLUS_SIGN){
+        value= value + resolve_term(term->next, arg_vals);
+        cout << "Value at resolve poly_body is increased " << value << "\n";
+    }else if (term->addop == MINUS_SIGN){
+        value-= resolve_term(term->next, arg_vals);
+        cout << "Value at resolve poly_body is decreased " << value << "\n";
+
+    }
+    return value;
+}
+int resolve_term(TERM* term, vector<pair<string, int>>& arg_vals){
+    cout << "Resolving term \n";
+    if (!term){
+        cerr << "Null term or monom list declaration in resolve term\n";
+        return -1;
+    }
+    int value = 0;
+    /*STEP 1 resolve monom list*/
+    if (term->monomial_list){
+        MONOMIAL* monom = term->monomial_list->head;
+        while(monom){
+            value = resolve_monomial(monom, arg_vals);
+            cout << "Value at resolve term is " << value << "\n";
+            monom = monom->next;
+        }
+    }
+    /*STEP 2 resolve coefficient*/
+    if (value == 0){return term->coefficient;}
+    value = value * term->coefficient;
+    return value;
+}
+int resolve_monomial(MONOMIAL* monom, vector<pair<string, int>>& arg_vals){
+    cout << "Resolving monomial \n";
+    if (!monom || !monom->primary){
+        cerr << "Null monom or primary declaration in resolve monomial\n";
+        return -1;
+    }
+    int value = 0;
+    /*STEP 1 resolve primary */
+    PRIMARY* primary = monom->primary;
+    value = resolve_primary(primary, arg_vals);
+    cout << "Value at resolve monom is " << value << "\n";
+    /*STEP 2 resolve exponent application*/
+    if (monom->exponent == 0){value = 1;}
+    else if (monom->exponent != 1){value = pow(value, monom->exponent);} 
+    return value;
+}
+int resolve_primary(PRIMARY* primary, vector<pair<string, int>>& arg_vals){
+    int value = 0;
+    cout << "Resolving primary\n";
+    /*STEP 1 identify type of primary ID or term_list */
+    if (primary->type == IDENFIER){
+        cout << primary->lexeme <<" is primary lexeme found\n";
+        cout << primary->var_index <<" is primary var index found\n";
+        for (const auto& pair : arg_vals) {
+            if (pair.first == primary->lexeme) {
+                cout <<"Returned " << pair.second <<" \n";
+                return pair.second;
+            }
+        }
+        cerr << "Error: Lexeme " << primary->lexeme << " not found in arg_vals\n";
+        return -1; // Return an error value if lexeme is not found
+    } else if (primary->type == RTERML){
+        if (!primary->term_list->head){
+            cerr << "Primary with term list and no term list in monom found!";
+        }
+        TERM* term = primary->term_list->head;
+        while (term){
+            value = resolve_term(term, arg_vals);
+            term = term->next;
+        }
+    }
+    else {cerr << "Something happened in primary :/\n";}
+    return value;
+}
 void task_1(PROGRAM* program){
     //syntax handling
     int status = syntax_execution_get(); 
     if (status > 0) {
-        cout << "SYNTAX ERROR !!!!!&%!!\n";
+        //cout << "SYNTAX ERROR !!!!!&%!!\n";
     }
     /*
     SEMANTIC HANDLING 
@@ -57,7 +257,7 @@ void task_1(PROGRAM* program){
    if (code_3(program)) return;
    if (code_4(program)) return;   
    else {
-    cout << "No semantic errors found\n";
+    //cout << "No semantic errors found\n";
    }
 }
 
@@ -88,16 +288,13 @@ bool code_1(vector<POLY_DECL>* poly_section){
 }
 bool code_2(vector<POLY_DECL>* poly_section){
     vector<int> invalid_line;
-    /*
-    for (const auto& entry : var_map) {
-        cout << entry.first << " -> " << entry.second << endl;
-    }    
-        */
+  
     //case no args
     for (const auto& poly : *poly_section){
         if (poly.poly_parameters == nullptr){
             if (poly.body){
-                grow_varmap("x");
+                int success = grow_varmap("x");
+                if (success < 0){cerr<< "Not able to grow var map\n";}
                 invalid_line = process_term_list_univariate(poly.body, invalid_line);
             }
         } else {
@@ -159,7 +356,7 @@ while (term){
 }
 vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> invalid_line, const vector<string>& poly_vars) {
     TERM* term = term_list ? term_list->head : nullptr;
-    if (!term){cout << "No term list \n";}
+    if (!term){cerr << "No term list \n";}
     while (term) {
         MONOMIAL* monomial = term->monomial_list ? term->monomial_list->head : nullptr;
         while (monomial) {
@@ -173,10 +370,10 @@ vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> inv
                 }
                 if (!is_valid) {  // If no match was found, mark it as invalid
                     invalid_line.push_back(monomial->primary->line_no);
-                    cout << "No match found for var " << monomial->primary->lexeme << ", adding line " << monomial->primary->line_no << " to invalid list.\n";
+                    //cout << "No match found for var " << monomial->primary->lexeme << ", adding line " << monomial->primary->line_no << " to invalid list.\n";
                 }
             } else if (monomial->primary->type == RTERML){
-                cout << monomial->primary->line_no << " \n";
+                //cout << monomial->primary->line_no << " \n";
                 invalid_line = process_term_list_multivariate(monomial->primary->term_list, invalid_line, poly_vars);
             }
         monomial = monomial->next;
@@ -253,7 +450,6 @@ vector<int> check_arg_list(ARGUMENT_LIST* argument_list,unordered_set<string> po
     }
     return error_lines;
 }
-
 bool code_4(PROGRAM* program){
     vector<int> error_lines; 
     if (!program->execute_section || !program->execute_section->head){
@@ -264,16 +460,17 @@ bool code_4(PROGRAM* program){
 
     while(statement){
         if (statement->statement_type == ASSIGN_STATEMENT || statement->poly_evaluation_t){
-            for (auto& poly_decl : *(program->poly_section)){
-                if (poly_decl.name == statement->poly_evaluation_t->name){
-                    error_lines = compare_argument_count(&poly_decl, statement->poly_evaluation_t, error_lines); //how to pass poly decl
-                }
+            POLY_DECL* poly_decl = find_poly_decl(program->poly_section, statement->poly_evaluation_t->name);
+            if (poly_decl){
+                //cout << "Reviewing " << poly_decl->name << " with poly eval " << statement->poly_evaluation_t->name<<" \n";
+                error_lines = compare_argument_count(program->poly_section, poly_decl, statement->poly_evaluation_t, error_lines); //how to pass poly decl        
             }
         }
-            statement = statement->next;
+        statement = statement->next;
     }
     if (!error_lines.empty()){
         cout << "Semantic Error Code 4:";
+        sort(error_lines.begin(), error_lines.end()); // Sort in ascending order
         for (int line : error_lines){
             cout << " " << line; //?? maybe already sorted
         }
@@ -282,17 +479,36 @@ bool code_4(PROGRAM* program){
     }
     return false;
 }
-vector<int> compare_argument_count(POLY_DECL* poly_decl, POLY_EVAL* poly_eval, vector<int> error_lines){
+POLY_DECL* find_poly_decl(vector<POLY_DECL>* poly_section, const string& name) {
+    if (!poly_section) return nullptr;
+        for (auto& poly_decl : *poly_section){
+            if (poly_decl.name == name){
+                return &poly_decl;
+                }
+        }
+    return nullptr;
+}
+vector<int> compare_argument_count(vector<POLY_DECL>* poly_section, POLY_DECL* poly_decl, POLY_EVAL* poly_eval, vector<int> error_lines){
     if (!poly_decl || !poly_eval) return error_lines; // Safety check
     //how many expected
-    int expected_args = (poly_decl->poly_parameters) ? poly_decl->poly_parameters->size() : 0;
+    int expected_args = (poly_decl->poly_parameters) ? poly_decl->poly_parameters->size() : 1;
+    //cout << "Expected args for poly decl " << poly_decl->name << " "<< expected_args << " \n";
     int eval_args = 0;
     ARGUMENT* argument = (poly_eval->argument_list) ? poly_eval->argument_list->head : nullptr;
+   //cout << "Argument pointer made\n";
     while (argument) {
         eval_args++; //collect argument num
+        if (argument->type == POLYEVAL_TYPE|| argument->poly_eval){
+            POLY_DECL* poly_decl = find_poly_decl(poly_section, argument->poly_eval->name);
+            if (poly_decl){
+                //cout << "Reviewing " << poly_decl->name << " with poly eval " << argument->poly_eval->name <<" \n";
+                error_lines = compare_argument_count(poly_section, poly_decl,argument->poly_eval , error_lines); //how to pass poly decl        
+            }
+        }
         argument = argument->next;
     }
     if (expected_args != eval_args){
+        //cout << "Eval args for poly eval " << poly_eval->name << " are " << eval_args << " . Pushing to error lines\n";
         error_lines.push_back(poly_eval->line_no);
     }
     return error_lines;
@@ -340,11 +556,15 @@ string get_lexeme(int value) {
     return ""; // Error value
 }
 
-int get_valuelist(int index, int value){
-    return 0;   
+int get_valuelist(int index){
+    if (index < 0 || index >= value_list.size()) {
+        return -1;  // Error: Index out of bounds
+    }
+    return value_list[index];
 }
-int set_valuelist(int index, int value){
-    return 0;   
+int set_valuelist(int value){
+    value_list.push_back(value);
+    return value_list.size() - 1; //returns the new index of the value
 }
 /*
 Debugging print stmts

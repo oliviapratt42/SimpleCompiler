@@ -5,8 +5,6 @@ CXXFLAGS = -std=c++11 -Wall -g
 # Source files
 SRC = inputbuf.cc lexer.cc parser.cc resolution.cc
 
-#TODO: add data_structures.h
-
 # Object files (replace .cpp with .o)
 OBJ = $(SRC:.cc=.o)
 

@@ -10,6 +10,8 @@
 #include <string>
 #include <iostream>
 #include <unordered_set>
+#include "resolution.h"
+#include "parser.h"
 #include "lexer.h"
 #include "inputbuf.h"
 

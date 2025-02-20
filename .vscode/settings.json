@@ -4,6 +4,7 @@
         "__config": "cpp",
         "iosfwd": "cpp",
         "version": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "variant": "cpp"
     }
 }
