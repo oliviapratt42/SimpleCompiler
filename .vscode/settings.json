@@ -5,6 +5,15 @@
         "iosfwd": "cpp",
         "version": "cpp",
         "iostream": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "initializer_list": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp"
     }
 }

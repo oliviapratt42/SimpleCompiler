@@ -151,9 +151,14 @@ class Parser {
     LexicalAnalyzer lexer;
 
   private:
+    int mem[1000] = {0};
+
     void syntax_error();
-    void parse_tasks_section(vector<int>* tasks);
-    void parse_num_list(vector<int>* nums); 
+    void parse_tasks_section(vector<int>& tasks);
+    void populate_memory(vector<int>& inputs);
+
+    void parse_num_list(vector<int>& nums); //kept for tasks
+
     void parse_poly_section(vector<POLY_DECL>* poly_declarations);
     void parse_poly_decl_list(vector<POLY_DECL>* poly_declarations);
     void parse_poly_decl(vector<POLY_DECL>* poly_declarations);
@@ -178,7 +183,7 @@ class Parser {
     void parse_poly_evaluation(POLY_EVAL* poly_eval);
     void parse_argument_list(ARGUMENT_LIST* argument_list);
     void parse_argument(ARGUMENT* argument);
-    void parse_inputs_section(vector<int>* inputs_section);
+    void parse_inputs_section(vector<int>& inputs_section);
     };
 
 #endif

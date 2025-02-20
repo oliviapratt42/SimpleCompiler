@@ -26,12 +26,11 @@ void task_2(PROGRAM* program);
     int resolve_monomial(MONOMIAL* monom, vector<pair<string, int>>& arg_vals);
     int resolve_primary(PRIMARY* primary, vector<pair<string, int>>& arg_vals);
 
-void task_1(PROGRAM* program);
+bool task_1(PROGRAM* program);
     //helper programs
     bool code_1(vector<POLY_DECL>* poly_section);
     bool code_2(vector<POLY_DECL>* poly_section);
-        vector<int> process_term_list_univariate(TERM_LIST* term_list, vector<int> invalid_line);
-        vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> invalid_line,const vector<string>& poly_vars);
+        vector<int> process_term_list(TERM_LIST* term_list, vector<int> invalid_line, const vector<string>& poly_vars);
     bool code_3(PROGRAM* program);
         vector<int> check_poly_eval(POLY_EVAL* poly_eval, unordered_set<string> polyNames, vector<int> error_lines);
         vector<int> check_arg_list(ARGUMENT_LIST* argument_list,unordered_set<string> polyNames, vector<int> error_lines);

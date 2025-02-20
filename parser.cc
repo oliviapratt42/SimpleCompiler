@@ -30,7 +30,7 @@ void Parser::syntax_error()
 PROGRAM* Parser::parse_program(PROGRAM* program){
     //tasks_section poly_section execute_section inputs_section
 
-    parse_tasks_section(program->tasks);
+    parse_tasks_section(*(program->tasks));
     //printTasks(program);
 
     parse_poly_section(program->poly_section);
@@ -38,11 +38,22 @@ PROGRAM* Parser::parse_program(PROGRAM* program){
 
     parse_execute_section(program->execute_section);
    // printEXECUTE(program);
-    parse_inputs_section(program->inputs_section);
+    parse_inputs_section(*(program->inputs_section));
+    populate_memory(*(program->inputs_section));
     //printINPUTS(program);
     return program;
 }
-void Parser::parse_tasks_section(vector<int>* tasks){
+void Parser::populate_memory(vector<int>& inputs) {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        if (i >= 1000) { // Check for overflow
+            cerr << "Error: Memory overflow at index " << i << endl;
+            break; // Stop populating if overflow occurs
+        }
+        mem[i] = inputs[i]; // Assign input values to memory
+    }
+}
+
+void Parser::parse_tasks_section(vector<int>& tasks){
     //TASKS num_list
     Token t = expect(TASKS);
     Token k = lexer.peek(1);
@@ -52,12 +63,14 @@ void Parser::parse_tasks_section(vector<int>* tasks){
     parse_num_list(tasks);
     return;
 }
-void Parser::parse_num_list(vector<int>* nums){
+void Parser::parse_num_list(vector<int>& nums){
     //NUM
     //NUM num_list
-
+    /*
+    currently just for tasks
+    */
     Token t = expect(NUM);
-    nums->push_back(stoi(t.lexeme));//grow num list
+    nums.push_back(stoi(t.lexeme));//grow num list
 
     Token s = lexer.peek(1);
     if (s.token_type == NUM){ 
@@ -65,6 +78,7 @@ void Parser::parse_num_list(vector<int>* nums){
     }
     return;
 }
+
 void Parser::parse_poly_section(vector<POLY_DECL>* poly_declarations){
     //POLY poly_decl_list
     // Check if peek(1) returned a valid token
@@ -130,6 +144,8 @@ void Parser::parse_poly_header(POLY_DECL* poly_decl){
         t = expect(RPAREN);
     } 
     else if (t.token_type == EQUAL){
+        poly_decl->poly_parameters = new vector<pair<string, int> >();
+        poly_decl->poly_parameters->emplace_back("x", 0);
         return;
     }
     else{
@@ -144,10 +160,6 @@ void Parser::parse_id_list(vector<pair<string, int> >* poly_parameters, int orde
     //ID COMMA id_list
     Token t = expect(ID);
     poly_parameters->push_back(make_pair(t.lexeme, order)); 
-    int success = grow_varmap(t.lexeme);
-    if (success < 0){
-        cerr << "Error in growing var map with " << t.lexeme << " \n";
-    }
 
     Token k = lexer.peek(1);
     if (k.token_type == COMMA){
@@ -310,7 +322,7 @@ void Parser::parse_primary(PRIMARY* primary){
         primary->type = IDENFIER;
         primary->line_no = t.line_no;
         primary->lexeme = t.lexeme;
-        primary->var_index = get_varmap(t.lexeme);
+        //primary->var_index = get_varmap(t.lexeme);
         return;
     }
     else if(t.token_type == LPAREN){
@@ -582,7 +594,7 @@ void Parser::parse_argument(ARGUMENT* argument){
     }
     return;
 }
-void Parser::parse_inputs_section(vector<int>* inputs_section){
+void Parser::parse_inputs_section(vector<int>& inputs_section){
     //INPUTS num_list
     //return int vector inputs_section
     Token t = expect(INPUTS);

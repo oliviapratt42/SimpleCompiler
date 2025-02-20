@@ -1,7 +1,9 @@
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <cmath> //power
+#include <algorithm>
 #include <iostream>
 #include "resolution.h"
 #include "parser.h"
@@ -25,8 +27,10 @@ void task_execution(PROGRAM* program){
         for (int task : *program->tasks){
             switch (task){
                 case 1:
-                cout << "At task2 \n";
-                task_1(program);
+                //cout << "At task1 \n";
+                if (task_1(program)){
+                    return;
+                }
                 break;
             case 2:
                 task_2(program);
@@ -243,7 +247,7 @@ int resolve_primary(PRIMARY* primary, vector<pair<string, int>>& arg_vals){
     else {cerr << "Something happened in primary :/\n";}
     return value;
 }
-void task_1(PROGRAM* program){
+bool task_1(PROGRAM* program){
     //syntax handling
     int status = syntax_execution_get(); 
     if (status > 0) {
@@ -252,11 +256,12 @@ void task_1(PROGRAM* program){
     /*
     SEMANTIC HANDLING 
     */
-   if (code_1(program->poly_section)) return;
-   if (code_2(program->poly_section)) return;
-   if (code_3(program)) return;
-   if (code_4(program)) return;   
+   if (code_1(program->poly_section)) return true;
+   if (code_2(program->poly_section)) return true;
+   if (code_3(program)) return true;
+   if (code_4(program)) return true;   
    else {
+    return false;
     //cout << "No semantic errors found\n";
    }
 }
@@ -289,72 +294,33 @@ bool code_1(vector<POLY_DECL>* poly_section){
 bool code_2(vector<POLY_DECL>* poly_section){
     vector<int> invalid_line;
   
-    //case no args
+    //for every poly nomial in the poly section
     for (const auto& poly : *poly_section){
-        if (poly.poly_parameters == nullptr){
-            if (poly.body){
-                int success = grow_varmap("x");
-                if (success < 0){cerr<< "Not able to grow var map\n";}
-                invalid_line = process_term_list_univariate(poly.body, invalid_line);
-            }
-        } else {
+            //make a list of its polynomial variables (arguments taken)
             vector<string> poly_vars;
             for (const auto& param : *poly.poly_parameters) {
                 //cout << "Parameter " << param.first << " collected \n";
                 poly_vars.push_back(param.first); // Collect variable names (like x, y, etc.)
             }
             if (poly.body) {
-                invalid_line = process_term_list_multivariate(poly.body, invalid_line, poly_vars);
+                invalid_line = process_term_list(poly.body, invalid_line, poly_vars);
+            } else {
+                cerr << "No poly boday found in code 2\n";
             }
         }
-    }
     if (!invalid_line.empty()) {
         cout << "Semantic Error Code 2:";
         for (int line_no : invalid_line) {
             cout << " " << line_no;
         }
-            cout << '\n';
+        cout << '\n';
         return true; //error occurred
     }
 
     return false;
 }
-vector<int> process_term_list_univariate(TERM_LIST* term_list, vector<int> invalid_line){
-     /*
-    for every term in term list
-        for every monomial in monom list of term
-            if primary is of type identifier,it should be an index where x is in var map 
-            if is of type term list, for every term in its term list 
-                for every monomial in monom list of term
-                    if primary is of type identifier,it should be an index where x is in var map 
-                    if is of type term list, for every term in its term list etc.. 
-            */
-TERM* term = term_list ? term_list->head : nullptr;
-while (term){
-    MONOMIAL* monomial = term->monomial_list ? term->monomial_list->head : nullptr;
-        while (monomial){
-            if (monomial->primary->type == IDENFIER){
-                int var_map_index = get_varmap("x");
-                if (var_map_index == -1) {
-                    cerr << "Error: Identifier not found in var_map\n";
-                    invalid_line.push_back(monomial->primary->line_no);
-                } else if (monomial->primary->lexeme == "x"){
-                    monomial->primary->var_index = var_map_index; //its chill actually
-                }
-                else if (var_map_index != monomial->primary->var_index){
-                    invalid_line.push_back(monomial->primary->line_no);
-                }
-            } 
-            else if (monomial->primary->type == RTERML){
-                invalid_line = process_term_list_univariate(monomial->primary->term_list, invalid_line);
-            }
-            monomial = monomial->next;
-        }
-        term = term->next;
-    }
-    return invalid_line;
-}
-vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> invalid_line, const vector<string>& poly_vars) {
+
+vector<int> process_term_list(TERM_LIST* term_list, vector<int> invalid_line, const vector<string>& poly_vars) {
     TERM* term = term_list ? term_list->head : nullptr;
     if (!term){cerr << "No term list \n";}
     while (term) {
@@ -374,7 +340,7 @@ vector<int> process_term_list_multivariate(TERM_LIST* term_list, vector<int> inv
                 }
             } else if (monomial->primary->type == RTERML){
                 //cout << monomial->primary->line_no << " \n";
-                invalid_line = process_term_list_multivariate(monomial->primary->term_list, invalid_line, poly_vars);
+                invalid_line = process_term_list(monomial->primary->term_list, invalid_line, poly_vars);
             }
         monomial = monomial->next;
         }

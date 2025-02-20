@@ -7,7 +7,5 @@ EXECUTE
     INPUT a;
     w = F1(a);
     OUTPUT w;
-    w = F2(w,a);
-    OUTPUT w;
 INPUTS
     3 4 5
