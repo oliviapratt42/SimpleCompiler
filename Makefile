@@ -5,7 +5,7 @@ CXXFLAGS = -std=c++11 -Wall -g
 # Source files
 SRC = inputbuf.cc lexer.cc parser.cc resolution.cc
 
-# Object files (replace .cpp with .o)
+# Object files (replace .cc with .o)
 OBJ = $(SRC:.cc=.o)
 
 # Output executable
@@ -15,7 +15,7 @@ TARGET = a.out
 $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJ)
 
-# Compile each .cpp file into .o
+# Compile each .cc file into .o
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -23,3 +23,4 @@ $(TARGET): $(OBJ)
 .PHONY: clean
 clean:
 	rm -f $(OBJ) $(TARGET)
+

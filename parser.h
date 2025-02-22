@@ -11,7 +11,6 @@
 #include <iostream>
 #include <unordered_set>
 #include "resolution.h"
-#include "parser.h"
 #include "lexer.h"
 #include "inputbuf.h"
 
@@ -66,6 +65,7 @@ struct ARGUMENT {
   int index = -1; // of ID in id list 
   POLY_EVAL* poly_eval = nullptr;
   int line_no;
+  string lexeme = "";
   ARGUMENT* next = nullptr;
 };
 
@@ -113,7 +113,7 @@ struct STATEMENT {
   STYPE statement_type = INPUT_STMT; // input, output, or assign
   int line_no;
   int var = -1; // for input/output: index of location
-  int LHS = -1; // index of variable on the LHS of the equation
+  string lexeme = "";
   POLY_EVAL* poly_evaluation_t = nullptr; // optional for assignment
   STATEMENT* next = nullptr; // next statement in the list
 };
@@ -151,12 +151,9 @@ class Parser {
     LexicalAnalyzer lexer;
 
   private:
-    int mem[1000] = {0};
 
     void syntax_error();
     void parse_tasks_section(vector<int>& tasks);
-    void populate_memory(vector<int>& inputs);
-
     void parse_num_list(vector<int>& nums); //kept for tasks
 
     void parse_poly_section(vector<POLY_DECL>* poly_declarations);

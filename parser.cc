@@ -41,18 +41,8 @@ PROGRAM* Parser::parse_program(PROGRAM* program){
     parse_inputs_section(*(program->inputs_section));
 
     Token t = expect(END_OF_FILE);
-    populate_memory(*(program->inputs_section));
     //printINPUTS(program);
     return program;
-}
-void Parser::populate_memory(vector<int>& inputs) {
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        if (i >= 1000) { // Check for overflow
-            cerr << "Error: Memory overflow at index " << i << endl;
-            break; // Stop populating if overflow occurs
-        }
-        mem[i] = inputs[i]; // Assign input values to memory
-    }
 }
 
 void Parser::parse_tasks_section(vector<int>& tasks){
@@ -284,7 +274,6 @@ void Parser::parse_primary(PRIMARY* primary){
         primary->type = IDENFIER;
         primary->line_no = t.line_no;
         primary->lexeme = t.lexeme;
-        //primary->var_index = get_varmap(t.lexeme);
         return;
     }
     else if(t.token_type == LPAREN){
@@ -427,15 +416,13 @@ void Parser::parse_input_statement(STATEMENT* statement){
     Token t = expect(INPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
-
-    statement->LHS = -1;
+    statement->lexeme = k.lexeme;
     statement->poly_evaluation_t = nullptr;
-    int success = grow_varmap(k.lexeme); 
-    addToDecl(k.lexeme, k.line_no);
-    if (success < 0){
-        //cerr << "Error in growing var map with " << k.lexeme << " \n";
+    int success = grow_varmap(k.lexeme);
+    if (success != -1){
+        statement->var = success;
+        variables[statement->var] = 1;
     }
-    statement->var = get_varmap(k.lexeme);
     return;
 }
 void Parser::parse_output_statement(STATEMENT* statement){
@@ -444,15 +431,10 @@ void Parser::parse_output_statement(STATEMENT* statement){
     Token t = expect(OUTPUT);
     Token k = expect(ID);
     Token j = expect(SEMICOLON);
-
-    statement->LHS = -1;
+    statement->lexeme = k.lexeme;
     statement->poly_evaluation_t = nullptr;
-    int success = grow_varmap(k.lexeme); 
-    addToOutput(k.lexeme, k.line_no);
-    if (success < 0){
-        //cerr << "Error in growing var map with " << k.lexeme << " \n";
-    }
-    statement->var = get_varmap(k.lexeme);
+    int exists = -1;
+    if (exists != -1){statement->var = get_varmap(k.lexeme);}
     //return statement struct
     return;
 }
@@ -460,24 +442,26 @@ void Parser::parse_assign_statement(STATEMENT* statement){
     //ID EQUAL poly_evaluation SEMICOLON
     //fill values of statement struct param
     Token t = expect(ID);
-    int success = grow_varmap(t.lexeme); //add to var map
-    addToEval(t.lexeme, t.line_no);
-    if (success < 0){
-        //cerr << "Error in growing var map with " << t.lexeme << " \n";
-    }
+
     Token k = expect(EQUAL);
+    statement->lexeme = t.lexeme;
     POLY_EVAL* poly_eval = new POLY_EVAL();
     parse_poly_evaluation(poly_eval);
+
+    int success = get_varmap(t.lexeme);
+    if (success == -1){statement->var = grow_varmap(t.lexeme);}
+    else{statement->var = success;}
+
     statement->poly_evaluation_t = poly_eval;
     Token j = expect(SEMICOLON);
-    statement->var = success;
     return;
 }
 void Parser::parse_poly_evaluation(POLY_EVAL* poly_eval){
     //poly_name LPAREN argument_list RPAREN
-    poly_eval->name = (parse_poly_name()).lexeme;
+    Token lexeme = parse_poly_name();
+    poly_eval->name = lexeme.lexeme;
+    poly_eval->line_no = lexeme.line_no;
     Token t = expect(LPAREN);
-    poly_eval->line_no = t.line_no;
     ARGUMENT_LIST* arg_list = new ARGUMENT_LIST();
     poly_eval->argument_list = arg_list;
     parse_argument_list(arg_list);
@@ -543,6 +527,7 @@ void Parser::parse_argument(ARGUMENT* argument){
         t = expect(ID);
         argument->index = get_varmap(t.lexeme);
         argument->type = ID_TYPE;
+        argument->lexeme = t.lexeme;
         argument->poly_eval = nullptr;
         argument->line_no = t.line_no;
     }

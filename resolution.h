@@ -3,13 +3,14 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
-#include "resolution.h"
 #include "parser.h"
 #include "lexer.h"
 #include "inputbuf.h"
 
 extern int syntax_execution; // Declaration
+extern int variables[1000];//index of variables = 1 if variable 
 
 //syntax error management 
 int syntax_execution_get();
@@ -18,19 +19,26 @@ void syntax_execution_set(int status);
 //semantic handling 
 void task_execution(PROGRAM* program);
 
-void task_3(PROGRAM* program);
-void validate_decl(unordered_set<string>& initializedVars, ARGUMENT_LIST* arg_list);
-void addToDecl(string lexeme, int line_no);
-void addToEval(string lexeme, int line_no);
-void addToOutput(string lexeme, int line_no);
+void task_5(PROGRAM* program);
+int count_poly(POLY_DECL* poly_decl);
+int count_term(TERM* term);
+int count_monomial(MONOMIAL* monom);
+int count_primary(PRIMARY* primary);
 
+void task_4(PROGRAM* program);
+void check_var_use(ARGUMENT_LIST* arguement_list);
+void update_use(string lexeme, bool status);
+
+void task_3(PROGRAM* program);
+void validate_decl(ARGUMENT_LIST* arg_list);
 
 void task_2(PROGRAM* program);
-    int resolve_polynomial(POLY_EVAL* poly_eval, vector<POLY_DECL>* poly_section);
-    int resolve_argument(ARGUMENT* argument, vector<POLY_DECL>* poly_section);
-    int resolve_term(TERM* term, const unordered_map<string, int>& arg_vals);
-    int resolve_monomial(MONOMIAL* monom, const unordered_map<string, int>& arg_vals);
-    int resolve_primary(PRIMARY* primary, const unordered_map<string, int>& arg_vals);
+    void process_inputs(vector<int>* inputs);
+    int resolve_polynomial(POLY_EVAL* poly_eval, POLY_DECL* poly_decl);
+    int resolve_argument(ARGUMENT* argument);
+    int resolve_term(TERM* term, const vector<int>& arg_vals);
+    int resolve_monomial(MONOMIAL* monom, const vector<int>& arg_vals);
+    int resolve_primary(PRIMARY* primary, const vector<int>& arg_vals);
 
 bool task_1(PROGRAM* program);
     //helper programs
@@ -47,13 +55,8 @@ bool task_1(PROGRAM* program);
         //data structure construction
 int grow_varmap(string lexeme);
 int get_varmap(string lexeme);
-string get_lexeme(int value);
-int get_valuelist(int index);
-void add_valuelist(int value);
-void set_value_at(int index, int value);
 
 void add_to_warning(int line);
-
 
 void printTasks(PROGRAM* program);
 void printPOLYDECL(PROGRAM* program);
